@@ -1,0 +1,67 @@
+service: wallet-builder
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  region: sa-east-1
+  lambdaHashingVersion: 20201221
+  profile: serverless-admin
+  stage: dev
+  timeout: 10
+  environment:
+    DYNAMODB_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}"
+
+functions:
+  build:
+    handler: build.build
+    events:
+    - http:
+        path: build
+        method: get
+        cors: true
+    environment:
+      STOCKS_API: "https://alpha-vantage.p.rapidapi.com/query"
+      API_KEY: "c249ca03bemshbb07d24735c89dap137daejsn202495c9dcdb"
+      API_HOST: "alpha-vantage.p.rapidapi.com"
+
+resources:
+  Resources:
+    Wallet:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: user-id
+            AttributeType: S
+          # -
+          #   AttributeName: ticker
+          #   AttributeType: S
+          # -
+          #   AttributeName: quantity
+          #   AttributeType: N
+          # -
+          #   AttributeName: action
+          #   AttributeType: S
+          # -
+          #   AttributeName: date
+          #   AttributeType: S
+        KeySchema:
+          -
+            AttributeName: user-id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 100
+          WriteCapacityUnits: 100
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
