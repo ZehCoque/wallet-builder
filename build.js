@@ -8,13 +8,6 @@ const headers = {
 	"useQueryString": true
 }
 
-const params = {
-  "function": "TIME_SERIES_DAILY",
-	"symbol": "MSFT",
-	"outputsize": "compact",
-	"datatype": "json"
-}
-
 function candlestick(timeseries) {
 
   // desired format
@@ -50,13 +43,12 @@ function candlestick(timeseries) {
 
 }
 
-module.exports.build = async (event) => {
+function getChartData(URI, params){
 
-  let URI = process.env.STOCKS_API
-
-  return axios.get(URI,{params: params, headers: headers})
+  let promise = new Promise((resolve, reject) => {
+    axios.get(URI,{params: params, headers: headers})
     .then(response => {
-
+  
       //response.data["Time Series (Daily)"] format
       //"date:{
       // "1. open": string,
@@ -65,25 +57,67 @@ module.exports.build = async (event) => {
       // "4. close": string,
       // "5. volume": string
       // }
-
-      return candlestick(response.data["Time Series (Daily)"]).then((chartData) => {
-
-        return {
-          statusCode: 200,
-          body: JSON.stringify(
-            {
-              chartData: chartData
-            },
-            null,
-            2
-          ),
-        };
-
+  
+      candlestick(response.data["Time Series (Daily)"]).then((chartData) => {
+        console.log(params)
+        resolve(chartData);
+  
       })
-
+      .catch(error => {
+        console.log('candlestick function failed\n', error);
+        reject(error);
+      })
+  
     })
     .catch(error => {
-      console.log(error);
+      console.log('API GET failed\n', error);
+      reject(error);
     });
+  });
+
+  return promise;
+
+}
+
+module.exports.build = async (event) => {
+
+  let URI = process.env.STOCKS_API
+
+  let tickers = ['VALE3.SA', 'TSLA34.SA', 'WEGE3.SA', 'IRDM11.SA'];
+  // let quantities = [100, 50, 134, 243];
+
+  let promiseArray = [];
+
+  await tickers.forEach(ticker => {
+
+    const params = {
+      "function": "TIME_SERIES_DAILY",
+      "symbol": ticker,
+      "outputsize": "compact",
+      "datatype": "json"
+    }
+
+    promiseArray.push(getChartData(URI, params));
+
+  }) 
+
+  console.log(promiseArray)
+
+  return Promise.all(promiseArray).then((results) => {
+    console.log(results);
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(
+        {
+          results: results
+        },
+        null,
+        2
+      ),
+    };
+  })
+
+  
 
 };
