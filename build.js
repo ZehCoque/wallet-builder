@@ -43,6 +43,70 @@ function candlestick(timeseries) {
 
 }
 
+function line(timeseries) {
+
+  // desired format
+  // series: {
+  //   x: timestamp,
+  //   y: [open,high,low,close]
+  // }
+
+  let chartData = [];
+
+  let promise = new Promise((resolve, reject) => {
+    
+      if (!timeseries) reject('No json object found!');   
+
+      for (var key in timeseries){
+
+        let close = timeseries[key]['4. close'];
+
+        chartData = chartData.concat([{
+          x: new Date(key),
+          y: close
+        }])
+      }
+
+      resolve(chartData);
+
+  })
+
+  return promise;
+
+}
+
+function aggregate(allChartData, quantities){
+
+  let promise = new Promise((resolve, reject) => {
+
+    if (!allChartData) reject('allChartData missing!');
+    if (!quantities) reject('quantities missing!');
+
+    let aggr = [];
+
+    for (var i = 0; i < allChartData[0].length; i++){
+      let y = 0;
+  
+      for (var key = 0; key < allChartData.length; key++){
+  
+          y += Number(allChartData[key][i].y) * quantities[key];
+        }
+  
+        aggr = aggr.concat([{
+              x: allChartData[0][i].x,
+              y: y
+            }])
+    }
+    
+  
+  resolve(aggr);
+
+  });
+
+  return promise;
+
+}
+
 function getChartData(URI, params){
 
   let promise = new Promise((resolve, reject) => {
@@ -58,8 +122,8 @@ function getChartData(URI, params){
       // "5. volume": string
       // }
   
-      candlestick(response.data["Time Series (Daily)"]).then((chartData) => {
-        console.log(params)
+      line(response.data["Time Series (Daily)"]).then((chartData) => {
+   
         resolve(chartData);
   
       })
@@ -84,7 +148,7 @@ module.exports.build = async (event) => {
   let URI = process.env.STOCKS_API
 
   let tickers = ['VALE3.SA', 'TSLA34.SA', 'WEGE3.SA', 'IRDM11.SA'];
-  // let quantities = [100, 50, 134, 243];
+  let quantities = [100, 50, 134, 243];
 
   let promiseArray = [];
 
@@ -101,21 +165,22 @@ module.exports.build = async (event) => {
 
   }) 
 
-  console.log(promiseArray)
+  return Promise.all(promiseArray).then((allChartData) => {
 
-  return Promise.all(promiseArray).then((results) => {
-    console.log(results);
+    return aggregate(allChartData, quantities).then((results) => {
+      return {
+        statusCode: 200,
+        body: JSON.stringify(
+          {
+            results: results
+          },
+          null,
+          2
+        ),
+      };
+    })
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(
-        {
-          results: results
-        },
-        null,
-        2
-      ),
-    };
+
   })
 
   
