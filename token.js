@@ -3,26 +3,27 @@ const uuid = require('uuid');
 const CryptoHelper = require('./util/crypto');
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
-const tableName = process.env.DYNAMODB_TABLE + "-TOKENS";
+const tableName = process.env.DYNAMODB_TABLE + "-TOKEN";
 
 async function getExistentEntry(username) {
   const params = {
     TableName: tableName,
-    Key: {
-      username: username,
-    },
+    FilterExpression: 'username = :username',
+    ExpressionAttributeValues: {
+      ":username": username
+    }
   };
 
   var p = new Promise((resolve, reject) => {
-    dynamoDb.get(params, (error, res) => {
+    dynamoDb.scan(params, (error, res) => {
 
       if (error) {
         console.error(error);
         reject(error);
       }
 
-      if (!res.Item) resolve(false)
-      resolve(res.Item);
+      if (res.Count === 0) resolve(false)
+      resolve(res.Items[0]);
       
     });
   })
@@ -36,8 +37,8 @@ module.exports.createToken = async (event, context, callback) => {
 
       const body = JSON.parse(event.body);
 
-      let username = body.username;
-      let password = body.password;
+      const username = body.username;
+      const password = body.password;
 
       const existentEntry = await getExistentEntry(username);
 
@@ -51,27 +52,16 @@ module.exports.createToken = async (event, context, callback) => {
           };
           return callback(null, response);
         } else {
-          console.log("Password changed. Creating new token.");
-
-          const token = uuid.v4();
+          console.log("Password changed. Deleting current entry.");
 
           const params = {
             TableName: tableName,
             Key: {
-              username: username,
-            },
-            ExpressionAttributeNames: {
-              "#newtoken": "token",
-            },
-            ExpressionAttributeValues: {
-              ":pw": CryptoHelper.encrypt(password),
-              ":token": token,
-            },
-            UpdateExpression: 'SET password = :pw, #newtoken = :token',
-            ReturnValues: 'ALL_NEW',
+              token: existentEntry.token,
+            }
           };
 
-          return dynamoDb.update(params, (error) => {
+          await dynamoDb.delete(params, (error) => {
             if (error) {
               console.error(error);
     
@@ -83,12 +73,7 @@ module.exports.createToken = async (event, context, callback) => {
               return callback(null, response);
     
             }
-            
-            const response = {
-              statusCode: 201,
-              body: JSON.stringify({token: token}),
-            };
-            return callback(null, response);
+
           }).promise();
         }
       }
