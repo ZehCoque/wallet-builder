@@ -43,14 +43,54 @@ module.exports.createToken = async (event, context, callback) => {
 
       if (existentEntry.password) {
         if (CryptoHelper.decrypt(existentEntry.password) === password) {
-          console.log("Existent token for user:", existentEntry.token);
+          console.log("Existent token:", existentEntry.token);
   
           const response = {
             statusCode: 201,
             body: JSON.stringify({token: existentEntry.token}),
           };
           return callback(null, response);
-        } 
+        } else {
+          console.log("Password changed. Creating new token.");
+
+          const token = uuid.v4();
+
+          const params = {
+            TableName: tableName,
+            Key: {
+              username: username,
+            },
+            ExpressionAttributeNames: {
+              "#newtoken": "token",
+            },
+            ExpressionAttributeValues: {
+              ":pw": CryptoHelper.encrypt(password),
+              ":token": token,
+            },
+            UpdateExpression: 'SET password = :pw, #newtoken = :token',
+            ReturnValues: 'ALL_NEW',
+          };
+
+          return dynamoDb.update(params, (error) => {
+            if (error) {
+              console.error(error);
+    
+              const response = {
+                statusCode: 201,
+                body: JSON.stringify({error: 'Couldn\'t create token.'}),
+              };
+    
+              return callback(null, response);
+    
+            }
+            
+            const response = {
+              statusCode: 201,
+              body: JSON.stringify({token: token}),
+            };
+            return callback(null, response);
+          }).promise();
+        }
       }
 
       const encryptedPass = CryptoHelper.encrypt(password);
