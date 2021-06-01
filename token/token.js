@@ -5,7 +5,7 @@ const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
 const tableName = process.env.DYNAMODB_TABLE + "-TOKENS";
 
-async function getExistentToken(username, password) {
+async function getExistentEntry(username) {
   const params = {
     TableName: tableName,
     Key: {
@@ -39,7 +39,7 @@ module.exports.createToken = async (event, context, callback) => {
       let username = body.username;
       let password = body.password;
 
-      const existentEntry = await getExistentToken(username,password);
+      const existentEntry = await getExistentEntry(username);
 
       if (existentEntry.password) {
         if (CryptoHelper.decrypt(existentEntry.password) === password) {
