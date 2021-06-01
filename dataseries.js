@@ -143,7 +143,7 @@ function getChartData(URI, params){
 
 }
 
-module.exports.build = async (event) => {
+module.exports.getDataseries = async (event) => {
 
   let URI = process.env.STOCKS_API
 

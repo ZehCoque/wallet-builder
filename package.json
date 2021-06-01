@@ -1,0 +1,25 @@
+{
+  "name": "wallet-builder",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dataseries.js",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "crypto-js": "^4.0.0",
+    "uuid": "^8.3.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZehCoque/wallet-builder.git"
+  },
+  "author": "José Coque",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ZehCoque/wallet-builder/issues"
+  },
+  "homepage": "https://github.com/ZehCoque/wallet-builder#readme"
+}
