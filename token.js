@@ -1,6 +1,6 @@
 const AWS = require('aws-sdk');
 const uuid = require('uuid');
-const CryptoHelper = require('../util/crypto');
+const CryptoHelper = require('./util/crypto');
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
 const tableName = process.env.DYNAMODB_TABLE + "-TOKENS";
