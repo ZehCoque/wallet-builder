@@ -6,7 +6,7 @@ const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
 const tableName = process.env.DYNAMODB_TABLE + "-TICKER";
 
-async function getTickersFromDynamo() {
+function getTickersFromDynamo() {
 
   const params = {
     TableName: tableName,
@@ -68,6 +68,8 @@ function getUserStockHistory(event) {
           var code = operation.code;
 
           if (code.charAt(code.length-1) === 'F') code = code.substring(0, code.length - 1)
+
+          code = code + '.SA';
 
           if(tickers.indexOf(code) === -1) {
             tickers.push(code);
