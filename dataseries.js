@@ -50,8 +50,14 @@ function getDataFromDynamo() {
 
   const params = {
     TableName: tableName,
-    ProjectionExpression: 'ticker, lastUpdated'
+    ProjectionExpression: 'ticker, lastUpdated',
+    FilterExpression: 'lastUpdated < :today',
+    ExpressionAttributeValues: {
+      ":today": moment().startOf('day').toISOString()
+    }
   };
+
+  console.log(params)
 
   var p = new Promise(async (resolve, reject) => {
 

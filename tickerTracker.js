@@ -93,6 +93,7 @@ function putTicker(ticker) {
     TableName: tableName,
     Item: {
       ticker: ticker,
+      lastUpdated: '1900-01-01T00:00:00.000Z'
     },
   };
 
