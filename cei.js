@@ -20,7 +20,7 @@ async function getUsernameAndPassword(username) {
         console.error(error);
         reject(error);
       }   
-      if (!res || !res.Item) reject('Invalid username.')
+      if (!res || !res.Item) reject('Invalid or unregistered username.')
       resolve(res.Item.password);
     });
   })
