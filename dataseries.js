@@ -4,7 +4,7 @@ const dynamoDb = new AWS.DynamoDB.DocumentClient();
 const calculateBusinessDays = require('./util/calculateBusinessDays');
 var moment = require('moment');
 
-const tableName = process.env.DYNAMODB_TABLE + "-TICKER";
+const tableName = process.env.SESSION_NAME + "-TICKER";
 const API_URI = process.env.STOCKS_API;
 const API_KEY = process.env.API_KEY;
 
@@ -50,19 +50,22 @@ function getDataFromDynamo() {
 
   const params = {
     TableName: tableName,
+    ProjectionExpression: 'ticker, lastUpdated'
   };
 
-  var p = new Promise((resolve, reject) => {
-    dynamoDb.scan(params, (error, res) => {
-      if (error) {
-        console.error('DynamoDB error: ' + error);
-        reject(error);
-      }
+  var p = new Promise(async (resolve, reject) => {
 
-      if (!res || !res.Items) reject('No tickers retrieved from DB');
+    let scanResults = [];
+    let items;
 
-      resolve(res.Items);
-    });
+    do {
+      items = await dynamoDb.scan(params).promise().catch(error => reject(error));
+      items.Items.forEach((item) => scanResults.push(item));
+      params.ExclusiveStartKey = items.LastEvaluatedKey;
+    } while (typeof items.LastEvaluatedKey != "undefined");
+
+    resolve(scanResults);
+
   })
 
   return p;
@@ -94,9 +97,9 @@ function putDataInDynamo(data) {
   return p;
 }
 
-module.exports.dataseries = (event, context, callback) => {
+module.exports.dataseries = () => {
 
-  getDataFromDynamo().then(data => {
+  getDataFromDynamo().then(async data => {
 
     let promiseArray = [];
 
@@ -110,22 +113,18 @@ module.exports.dataseries = (event, context, callback) => {
       }
 
     });
+    
 
     //if promiseArray.length still <0 or === 0 disable 1 min time trigger of this function
     //clock time trigger should apply to tickerTracker
 
-    return Promise.all(promiseArray)
-    .then((results) => {
-
-      console.log(results)
-
-      const response = {
-        statusCode: 200,
-        body: results,
-      };
-
-      return response;
-    });
+    const results = await Promise.all(promiseArray);
+    console.log(results);
+    const response = {
+      statusCode: 200,
+      body: results,
+    };
+    return response;
 
   })
   .catch(error =>{
