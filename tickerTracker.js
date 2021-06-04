@@ -4,7 +4,7 @@ const lambda = new AWS.Lambda({
 });
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
-const tableName = process.env.DYNAMODB_TABLE + "-TICKER";
+const tableName = process.env.SESSION_NAME + "-TICKER";
 
 function getTickersFromDynamo() {
 

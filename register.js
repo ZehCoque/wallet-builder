@@ -2,7 +2,7 @@ const AWS = require('aws-sdk');
 const CryptoHelper = require('./util/crypto');
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
-const tableName = process.env.DYNAMODB_TABLE + "-USER";
+const tableName = process.env.SESSION_NAME + "-USER";
 
 module.exports.register = async (event, context, callback) => {
     try {

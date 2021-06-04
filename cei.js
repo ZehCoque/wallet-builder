@@ -3,7 +3,7 @@ const CeiCrawler = require('cei-crawler');
 const AWS = require('aws-sdk');
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
-const tableName = process.env.DYNAMODB_TABLE + "-USER";
+const tableName = process.env.SESSION_NAME + "-USER";
 
 async function getUsernameAndPassword(username) {
 
