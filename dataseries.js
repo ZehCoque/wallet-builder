@@ -32,7 +32,7 @@ function getChartData(ticker, outputSize){
       // }
 
       putDataInDynamo(response.data)
-      .then(() => resolve())
+      .then(() => resolve(ticker))
       .catch(error => reject(error));
   
     })
@@ -87,7 +87,6 @@ function putDataInDynamo(data) {
         console.error(error);
         reject(error);
       }   
-      console.log(params.ticker)
       resolve();
     }).promise();
   })
@@ -104,7 +103,7 @@ module.exports.dataseries = (event, context, callback) => {
     data.forEach(row => {
       if (promiseArray.length < 5) {
         if (!row.lastUpdated) {
-          promiseArray.push(getChartData(row.ticker, "full"));
+          promiseArray.push(getChartData(row.ticker, "compact"));
         } else if (calculateBusinessDays.calculateBusinessDays(row.lastUpdated, moment()) > 0) {
           promiseArray.push(getChartData(row.ticker, "compact"));
         }
@@ -112,8 +111,13 @@ module.exports.dataseries = (event, context, callback) => {
 
     });
 
+    //if promiseArray.length still <0 or === 0 disable 1 min time trigger of this function
+    //clock time trigger should apply to tickerTracker
+
     return Promise.all(promiseArray)
     .then((results) => {
+
+      console.log(results)
 
       const response = {
         statusCode: 200,
