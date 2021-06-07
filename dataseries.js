@@ -4,12 +4,12 @@ const dynamoDb = new AWS.DynamoDB.DocumentClient();
 const moment = require('moment');
 const timeTriggerController = require('timeTriggerController')
 
-const tickerTableName = process.env.SESSION_NAME + "-TICKER";
+const tickerTableName = process.env.SESSION_NAME + "-TICKERS";
 const timeseriesTableName = process.env.SESSION_NAME + "-TIMESERIES";
 const API_URI = process.env.STOCKS_API;
 const API_KEY = process.env.API_KEY;
 
-function getChartData(ticker, outputSize){
+function getChartData(ticker, outputSize, lastUpdated){
 
   const URI = API_URI;
   const params = {
@@ -23,14 +23,14 @@ function getChartData(ticker, outputSize){
     axios.get(URI,{params: params})
     .then(response => {
 
-      if (outputSize === 'full') {
-        Items = [];
+      var Items = [];
+      const timeseries = response.data['Time Series (Daily)'];
 
-        const timeseries = response.data['Time Series (Daily)'];
-  
+      if (outputSize === 'full') {
+        
         for (var datetime of Object.keys(timeseries)) {
             var Item = {
-                ticker: 'MGLU3.SA',
+                ticker: ticker,
                 timestamp: datetime,
                 open: timeseries[datetime]['1. open'],
                 high: timeseries[datetime]['2. high'],
@@ -43,15 +43,39 @@ function getChartData(ticker, outputSize){
             }
             Items.push(Item)
         }
+        
+      } else if(outputSize === 'compact') {
 
-        console.log(Items.length)
+        var count = 0;
+        var datetime = Object.keys(timeseries)[count];
 
-        multiWrite(Items);
+        while (datetime > lastUpdated) {
+          var Item = {
+              ticker: ticker,
+              timestamp: datetime,
+              open: timeseries[datetime]['1. open'],
+              high: timeseries[datetime]['2. high'],
+              low: timeseries[datetime]['3. low'],
+              close: timeseries[datetime]['4. close'],
+              adj_close: timeseries[datetime]['5. adjusted close'],
+              volume: timeseries[datetime]['6. volume'],
+              div_amount: timeseries[datetime]['7. dividend amount'],
+              split_coeff: timeseries[datetime]['8. split coefficient'],
+          }
+          Items.push(Item)
+          count++;
+          datetime = Object.keys(timeseries)[count];
+        }
+
       }
 
-      // putDataInDynamo(response.data)
-      // .then(() => resolve(ticker))
-      // .catch(error => reject(error));
+      multiWrite(Items)
+      .then(() => {
+        writeTickerData(response.data)
+        .then(() => resolve(ticker))
+        .catch((err) => reject(err));
+      })
+      .catch(err => reject(err));
   
     })
     .catch(error => {
@@ -71,7 +95,7 @@ function getDataFromDynamo() {
     ProjectionExpression: 'ticker, lastUpdated',
     FilterExpression: 'lastUpdated < :today',
     ExpressionAttributeValues: {
-      ":today": moment().startOf('day').toISOString()
+      ":today": moment().startOf('day').format('YYYY-MM-DD')
     }
   };
 
@@ -97,15 +121,14 @@ function getDataFromDynamo() {
 
 }
 
-function putDataInDynamo(data) {
+function writeTickerData(data) {
 
   const params = {
-    TableName: timeseriesTableName,
+    TableName: tickerTableName,
     Item: {
       ticker: data['Meta Data']['2. Symbol'],
-      lastUpdated: moment().toISOString(),
-      metadata: data['Meta Data'],
-      timeseries: data['Time Series (Daily)']
+      lastUpdated: moment().format('YYYY-MM-DD'),
+      lastRefreshed: data['Meta Data']['3. Last Refreshed'],
     },
   };
   
@@ -124,7 +147,7 @@ function putDataInDynamo(data) {
 
 function multiWrite(data) {
 
-  var p = new Promise((resolve, reject) => {
+  var p = new Promise(async (resolve, reject) => {
 
       // Build the batches
   var batches = [];
@@ -169,20 +192,27 @@ function multiWrite(data) {
             return errors;
         }
     }
-}
+  }
+ 
+  function wait() {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => resolve(), process.env.MAX_BATCHES_PER_SEC * 1000)
+    });
+  }
 
   // Make the requests
   var params;
   var errors;
   for(x in batches) {
-      // Items go in params.RequestItems.id array
-      // Format for the items is {PutRequest: {Item: ITEM_OBJECT}}
-      params = '{"RequestItems": {"' + timeseriesTableName + '": []}}';
-      params = JSON.parse(params);
-      params.RequestItems[timeseriesTableName] = batches[x];
+    // Items go in params.RequestItems.id array
+    // Format for the items is {PutRequest: {Item: ITEM_OBJECT}}
+    params = '{"RequestItems": {"' + timeseriesTableName + '": []}}';
+    params = JSON.parse(params);
+    params.RequestItems[timeseriesTableName] = batches[x];
 
-      // Perform the batchWrite operation
-      errors += dynamoDb.batchWrite(params, handler(params)).promise();
+    // Perform the batchWrite operation
+    errors += dynamoDb.batchWrite(params, handler(params)).promise();
+    await wait();
   }
   if (errors > 0) reject (errors);
   resolve();
@@ -201,14 +231,14 @@ module.exports.dataseries = () => {
     let promiseArray = [];
 
     data.forEach(row => {
-      if (promiseArray.length < 5) {
-          let outputsize = row.lastUpdated === '1900-01-01T00:00:00.000Z' ? 'full' : 'compact';
-          if (outputsize === 'full') promiseArray.push(getChartData(row.ticker, outputsize));
+      if (promiseArray.length < process.env.API_MAX_QUERIES_PER_SEC) {
+          let outputsize = row.lastUpdated === '1900-01-01' ? 'full' : 'compact';
+          promiseArray.push(getChartData(row.ticker, outputsize, row.lastUpdated));
       }
 
     });
     
-    if (promiseArray.length < 5) timeTriggerController.timeTriggerController('DISABLED')
+    if (promiseArray.length < process.env.API_MAX_QUERIES_PER_SEC) timeTriggerController.timeTriggerController('DISABLED')
 
     const results = await Promise.all(promiseArray);
     console.log(results);

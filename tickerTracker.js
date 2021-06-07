@@ -4,7 +4,7 @@ const lambda = new AWS.Lambda({
 });
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
-const tableName = process.env.SESSION_NAME + "-TICKER";
+const tableName = process.env.SESSION_NAME + "-TICKERS";
 
 function getTickersFromDynamo() {
 
@@ -93,7 +93,7 @@ function putTicker(ticker) {
     TableName: tableName,
     Item: {
       ticker: ticker,
-      lastUpdated: '1900-01-01T00:00:00.000Z'
+      lastUpdated: '1900-01-01'
     },
   };
 
