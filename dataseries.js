@@ -1,10 +1,11 @@
 const axios = require('axios');
 const AWS = require('aws-sdk');
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
-const calculateBusinessDays = require('./util/calculateBusinessDays');
-var moment = require('moment');
+const moment = require('moment');
+const timeTriggerController = require('timeTriggerController')
 
-const tableName = process.env.SESSION_NAME + "-TICKER";
+const tickerTableName = process.env.SESSION_NAME + "-TICKER";
+const timeseriesTableName = process.env.SESSION_NAME + "-TIMESERIES";
 const API_URI = process.env.STOCKS_API;
 const API_KEY = process.env.API_KEY;
 
@@ -21,19 +22,36 @@ function getChartData(ticker, outputSize){
   let promise = new Promise((resolve, reject) => {
     axios.get(URI,{params: params})
     .then(response => {
-  
-      //response.data["Time Series (Daily)"] format
-      //"date:{
-      // "1. open": string,
-      // "2. high": string,
-      // "3. low": string,
-      // "4. close": string,
-      // "5. volume": string
-      // }
 
-      putDataInDynamo(response.data)
-      .then(() => resolve(ticker))
-      .catch(error => reject(error));
+      if (outputSize === 'full') {
+        Items = [];
+
+        const timeseries = response.data['Time Series (Daily)'];
+  
+        for (var datetime of Object.keys(timeseries)) {
+            var Item = {
+                ticker: 'MGLU3.SA',
+                timestamp: datetime,
+                open: timeseries[datetime]['1. open'],
+                high: timeseries[datetime]['2. high'],
+                low: timeseries[datetime]['3. low'],
+                close: timeseries[datetime]['4. close'],
+                adj_close: timeseries[datetime]['5. adjusted close'],
+                volume: timeseries[datetime]['6. volume'],
+                div_amount: timeseries[datetime]['7. dividend amount'],
+                split_coeff: timeseries[datetime]['8. split coefficient'],
+            }
+            Items.push(Item)
+        }
+
+        console.log(Items.length)
+
+        multiWrite(Items);
+      }
+
+      // putDataInDynamo(response.data)
+      // .then(() => resolve(ticker))
+      // .catch(error => reject(error));
   
     })
     .catch(error => {
@@ -49,15 +67,13 @@ function getChartData(ticker, outputSize){
 function getDataFromDynamo() {
 
   const params = {
-    TableName: tableName,
+    TableName: tickerTableName,
     ProjectionExpression: 'ticker, lastUpdated',
     FilterExpression: 'lastUpdated < :today',
     ExpressionAttributeValues: {
       ":today": moment().startOf('day').toISOString()
     }
   };
-
-  console.log(params)
 
   var p = new Promise(async (resolve, reject) => {
 
@@ -66,9 +82,12 @@ function getDataFromDynamo() {
 
     do {
       items = await dynamoDb.scan(params).promise().catch(error => reject(error));
+      if (!items) reject('No results found');
       items.Items.forEach((item) => scanResults.push(item));
       params.ExclusiveStartKey = items.LastEvaluatedKey;
     } while (typeof items.LastEvaluatedKey != "undefined");
+
+    if (scanResults.length === 0) reject('No results found');
 
     resolve(scanResults);
 
@@ -81,7 +100,7 @@ function getDataFromDynamo() {
 function putDataInDynamo(data) {
 
   const params = {
-    TableName: tableName,
+    TableName: timeseriesTableName,
     Item: {
       ticker: data['Meta Data']['2. Symbol'],
       lastUpdated: moment().toISOString(),
@@ -103,6 +122,78 @@ function putDataInDynamo(data) {
   return p;
 }
 
+function multiWrite(data) {
+
+  var p = new Promise((resolve, reject) => {
+
+      // Build the batches
+  var batches = [];
+  var current_batch = [];
+  var item_count = 0;
+  for(var x in data) {
+      // Add the item to the current batch
+      item_count++;
+      current_batch.push({
+          PutRequest: {
+              Item: data[x]
+          }
+      });
+      // If we've added 25 items, add the current batch to the batches array
+      // and reset it
+      if(item_count%25 == 0) {
+          batches.push(current_batch);
+          current_batch = [];
+      }
+  }
+  // Add the last batch if it has records and is not equal to 25
+  if(current_batch.length > 0 && current_batch.length != 25) batches.push(current_batch);
+
+  // Handler for the database operations
+  var completed_requests = 0;
+  var errors = 0;
+  function handler(request) {
+    return function(err) {
+        // Increment the completed requests
+        completed_requests++;
+
+        // Log the error if we got one
+        if(err) {
+          errors = 1;
+          console.error(JSON.stringify(err, null, 2));
+          console.error("Request that caused database error:");
+          console.error(JSON.stringify(request, null, 2));
+        }
+
+        // Make the callback if we've completed all the requests
+        if(completed_requests == batches.length) {
+            return errors;
+        }
+    }
+}
+
+  // Make the requests
+  var params;
+  var errors;
+  for(x in batches) {
+      // Items go in params.RequestItems.id array
+      // Format for the items is {PutRequest: {Item: ITEM_OBJECT}}
+      params = '{"RequestItems": {"' + timeseriesTableName + '": []}}';
+      params = JSON.parse(params);
+      params.RequestItems[timeseriesTableName] = batches[x];
+
+      // Perform the batchWrite operation
+      errors += dynamoDb.batchWrite(params, handler(params)).promise();
+  }
+  if (errors > 0) reject (errors);
+  resolve();
+
+  });
+
+  return p;
+
+
+}
+
 module.exports.dataseries = () => {
 
   getDataFromDynamo().then(async data => {
@@ -111,18 +202,13 @@ module.exports.dataseries = () => {
 
     data.forEach(row => {
       if (promiseArray.length < 5) {
-        if (!row.lastUpdated) {
-          promiseArray.push(getChartData(row.ticker, "compact"));
-        } else if (calculateBusinessDays.calculateBusinessDays(row.lastUpdated, moment()) > 0) {
-          promiseArray.push(getChartData(row.ticker, "compact"));
-        }
+          let outputsize = row.lastUpdated === '1900-01-01T00:00:00.000Z' ? 'full' : 'compact';
+          if (outputsize === 'full') promiseArray.push(getChartData(row.ticker, outputsize));
       }
 
     });
     
-
-    //if promiseArray.length still <0 or === 0 disable 1 min time trigger of this function
-    //clock time trigger should apply to tickerTracker
+    if (promiseArray.length < 5) timeTriggerController.timeTriggerController('DISABLED')
 
     const results = await Promise.all(promiseArray);
     console.log(results);
