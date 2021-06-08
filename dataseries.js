@@ -2,7 +2,7 @@ const axios = require('axios');
 const AWS = require('aws-sdk');
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 const moment = require('moment');
-const timeTriggerController = require('timeTriggerController')
+const timeTriggerController = require('timeTriggerController');
 
 const tickerTableName = process.env.SESSION_NAME + "-TICKERS";
 const timeseriesTableName = process.env.SESSION_NAME + "-TIMESERIES";
@@ -193,12 +193,6 @@ function multiWrite(data) {
         }
     }
   }
- 
-  function wait() {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => resolve(), process.env.MAX_BATCHES_PER_SEC * 1000)
-    });
-  }
 
   // Make the requests
   var params;
@@ -212,7 +206,6 @@ function multiWrite(data) {
 
     // Perform the batchWrite operation
     errors += dynamoDb.batchWrite(params, handler(params)).promise();
-    await wait();
   }
   if (errors > 0) reject (errors);
   resolve();

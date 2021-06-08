@@ -38,7 +38,10 @@ function getUserStockHistory(event) {
 
   var p = new Promise((resolve, reject) => {
 
-    const username = event.Records[0].dynamodb.Keys.username.S;
+    var username;
+    if (!event.Records) username = event
+    else username = event.Records[0].dynamodb.Keys.username.S;
+    
     const payload = {queryStringParameters: {username: username}};
     const invokeParams = {
         FunctionName: 'wallet-builder-dev-getStockHistory',
@@ -110,12 +113,13 @@ function putTicker(ticker) {
   return p;
 }
 
-module.exports.tickerTracker = (event, context, callback) => {
-
+module.exports.tickerTracker = (event) => {
+  if (event.Records) {
     if (event.Records[0].eventName === 'REMOVE') return {
       statusCode: 200,
       body: JSON.stringify({message: "Remove action"}),
     }; ;
+  }
 
   	var promiseArray = [getTickersFromDynamo(), getUserStockHistory(event)];
 
@@ -124,9 +128,11 @@ module.exports.tickerTracker = (event, context, callback) => {
         const dynamoTickers = results[0];
         const userTickers = results [1];
 
-        const difference = dynamoTickers
-        .filter(x => !userTickers.includes(x))
-        .concat(userTickers.filter(x => !dynamoTickers.includes(x)));
+        Array.prototype.diff = function(a) {
+          return this.filter(function(i) {return a.indexOf(i) < 0;});
+        };
+
+        const difference = userTickers.diff(dynamoTickers);
 
 
         if (difference.length === 0) {
