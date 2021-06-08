@@ -72,7 +72,7 @@ function getChartData(ticker, outputSize, lastUpdated){
       multiWrite(Items)
       .then(() => {
         writeTickerData(response.data)
-        .then(() => resolve(ticker))
+        .then(() => resolve(ticker, outputSize))
         .catch((err) => reject(err));
       })
       .catch(err => reject(err));
@@ -237,7 +237,7 @@ module.exports.dataseries = () => {
     console.log(results);
     const response = {
       statusCode: 200,
-      body: results,
+      body: results
     };
     return response;
 
