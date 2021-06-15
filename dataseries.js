@@ -23,6 +23,8 @@ function getChartData(ticker, outputSize, lastUpdated){
     axios.get(URI,{params: params})
     .then(response => {
 
+      if (response["Error Message"]) reject('Invalid API call when calling' + ticker + 'with outputSize ' + outputSize);
+
       var Items = [];
       const timeseries = response.data['Time Series (Daily)'];
 
@@ -68,11 +70,10 @@ function getChartData(ticker, outputSize, lastUpdated){
         }
 
       }
-
       multiWrite(Items)
       .then(() => {
         writeTickerData(response.data)
-        .then(() => resolve(ticker, outputSize))
+        .then(() => resolve([ticker, outputSize]))
         .catch((err) => reject(err));
       })
       .catch(err => reject(err));
@@ -205,9 +206,9 @@ function multiWrite(data) {
     params.RequestItems[timeseriesTableName] = batches[x];
 
     // Perform the batchWrite operation
-    errors += dynamoDb.batchWrite(params, handler(params)).promise();
+    errors += await dynamoDb.batchWrite(params, handler(params)).promise();
   }
-  if (errors > 0) reject (errors);
+  if (errors > 0) reject ('batchWrite erros: ', errors);
   resolve();
 
   });
