@@ -123,3 +123,51 @@ module.exports.getTreasures = async (event, context, callback) => {
   });
   
 }
+
+module.exports.getStockHistoryOptions = async (event, context, callback) => {
+  
+  const params = event.queryStringParameters;
+  const username = params.username;
+  const password = CryptoHelper.decrypt(await getUsernameAndPassword(username));
+  
+  let ceiCrawler = new CeiCrawler(username, password);
+  
+  return ceiCrawler.getStockHistoryOptions().then(options => {
+    const response = {
+      statusCode: 200,
+      body: JSON.stringify(options),
+    };
+    return callback(null, response);
+  }).catch(error =>{
+    const response = {
+      statusCode: 500,
+      body: JSON.stringify({error: error.type}),
+    };
+    return callback(null, response);
+  });
+  
+  }
+
+  module.exports.getWalletOptions = async (event, context, callback) => {
+  
+    const params = event.queryStringParameters;
+    const username = params.username;
+    const password = CryptoHelper.decrypt(await getUsernameAndPassword(username));
+    
+    let ceiCrawler = new CeiCrawler(username, password);
+    
+    return ceiCrawler.getWalletOptions().then(options => {
+      const response = {
+        statusCode: 200,
+        body: JSON.stringify(options),
+      };
+      return callback(null, response);
+    }).catch(error =>{
+      const response = {
+        statusCode: 500,
+        body: JSON.stringify({error: error.type}),
+      };
+      return callback(null, response);
+    });
+    
+    }
