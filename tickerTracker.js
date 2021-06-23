@@ -2,7 +2,14 @@ const AWS = require('aws-sdk');
 const lambda = new AWS.Lambda({
   region: 'sa-east-1'
 });
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
+let options = {};
+if (process.env.IS_OFFLINE) {
+  options= {
+      region: 'localhost',
+      endpoint: 'http://localhost:8000'
+  }
+}
+const dynamoDb = new AWS.DynamoDB.DocumentClient(options);
 
 const tableName = process.env.SESSION_NAME + "-TICKERS";
 

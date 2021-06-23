@@ -1,0 +1,29 @@
+{
+    "Table": {
+        "TableName": "wallet-builder-dev-TIMESERIES",
+        "KeySchema": [
+            {
+                "AttributeName": "ticker",
+                "KeyType": "HASH"
+            },
+            {
+                "AttributeName": "timestamp",
+                "KeyType": "RANGE"
+            }
+        ],
+        "AttributeDefinitions":[
+            {
+                "AttributeName": "ticker",
+                "AttributeType": "S"
+            },            
+            {
+                "AttributeName": "timestamp",
+                "AttributeType": "S"
+            }
+        ],
+        "ProvisionedThroughput": {
+            "ReadCapacityUnits": 1000,
+            "WriteCapacityUnits": 1000
+        }
+    }
+}

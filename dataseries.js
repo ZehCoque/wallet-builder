@@ -1,8 +1,15 @@
 const axios = require('axios');
 const AWS = require('aws-sdk');
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
+let options = {};
+if (process.env.IS_OFFLINE) {
+  options= {
+      region: 'localhost',
+      endpoint: 'http://localhost:8000'
+  }
+}
+const dynamoDb = new AWS.DynamoDB.DocumentClient(options);
 const moment = require('moment');
-const timeTriggerController = require('timeTriggerController');
+const timeTriggerController = require('./timeTriggerController');
 
 const tickerTableName = process.env.SESSION_NAME + "-TICKERS";
 const timeseriesTableName = process.env.SESSION_NAME + "-TIMESERIES";

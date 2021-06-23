@@ -1,0 +1,21 @@
+{
+    "Table": {
+        "TableName": "wallet-builder-dev-USERS",
+        "KeySchema": [
+            {
+                "AttributeName": "username",
+                "KeyType": "HASH"
+            }
+        ],
+        "AttributeDefinitions":[
+            {
+                "AttributeName": "username",
+                "AttributeType": "S"
+            }
+        ],
+        "ProvisionedThroughput": {
+            "ReadCapacityUnits": 1000,
+            "WriteCapacityUnits": 1000
+        }
+    }
+}

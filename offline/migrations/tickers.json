@@ -1,0 +1,21 @@
+{
+    "Table": {
+        "TableName": "wallet-builder-dev-TICKERS",
+        "KeySchema": [
+            {
+                "AttributeName": "ticker",
+                "KeyType": "HASH"
+            }
+        ],
+        "AttributeDefinitions":[
+            {
+                "AttributeName": "ticker",
+                "AttributeType": "S"
+            }
+        ],
+        "ProvisionedThroughput": {
+            "ReadCapacityUnits": 1000,
+            "WriteCapacityUnits": 1000
+        }
+    }
+}
