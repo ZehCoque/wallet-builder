@@ -1,5 +1,5 @@
 const AWS = require('aws-sdk');
-const CryptoHelper = require('./util/crypto');
+const CryptoHelper = require('../utils/crypto');
 let options = {};
 if (process.env.IS_OFFLINE) {
   options= {

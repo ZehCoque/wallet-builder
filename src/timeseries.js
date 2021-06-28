@@ -1,4 +1,5 @@
 const axios = require('axios');
+const moment = require('moment');
 const AWS = require('aws-sdk');
 let options = {};
 if (process.env.IS_OFFLINE) {
@@ -8,7 +9,6 @@ if (process.env.IS_OFFLINE) {
   }
 }
 const dynamoDb = new AWS.DynamoDB.DocumentClient(options);
-const moment = require('moment');
 const timeTriggerController = require('./timeTriggerController');
 
 const tickerTableName = process.env.SESSION_NAME + "-TICKERS";
@@ -225,7 +225,7 @@ function multiWrite(data) {
 
 }
 
-module.exports.dataseries = () => {
+module.exports.timeseries = () => {
 
   getDataFromDynamo().then(async data => {
 

@@ -20,8 +20,8 @@ module.exports.timeTriggerController = (action) => {
             Rule: "Stock-API-Rule", //name of the CloudWatch rule
             Targets: [
               {
-                Arn: "arn:aws:lambda:sa-east-1:610426475485:function:wallet-builder-dev-dataseries",
-                Id: "wallet-builder-dev-dataseries",
+                Arn: "arn:aws:lambda:sa-east-1:610426475485:function:wallet-builder-dev-timeseries",
+                Id: "wallet-builder-dev-timeseries",
               }
             ]
           };

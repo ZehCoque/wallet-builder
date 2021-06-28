@@ -1,17 +1,14 @@
 const AWS = require('aws-sdk');
-const lambda = new AWS.Lambda({
-  region: 'sa-east-1'
-});
-let options = {};
 if (process.env.IS_OFFLINE) {
   options= {
       region: 'localhost',
       endpoint: 'http://localhost:8000'
   }
-}
+} else options = {region: 'sa-east-1'}
 const dynamoDb = new AWS.DynamoDB.DocumentClient(options);
+const lambda = new AWS.Lambda(options);
 const moment = require('moment');
-const momentBusinessDays = require('./util/momentBusinessDays');
+const momentBusinessDays = require('../utils/momentBusinessDays');
 
 const tableName = process.env.SESSION_NAME + '-TIMESERIES';
 

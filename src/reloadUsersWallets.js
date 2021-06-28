@@ -5,12 +5,12 @@ if (process.env.IS_OFFLINE) {
       region: 'localhost',
       endpoint: 'http://localhost:8000'
   }
-}
+} else options = {region: 'sa-east-1'}
 const dynamoDb = new AWS.DynamoDB.DocumentClient(options);
+const lambda = new AWS.Lambda(options);
 const tableName = process.env.SESSION_NAME + "-USER";
 
-const tickerTracker = require('./tickerTracker');
-const timeTriggerController = require('./timeTriggerController');
+const timeTriggerController = require('../utils/timeTriggerController');
 
 function getUsersFromDynamo() {
 
@@ -40,12 +40,51 @@ function getUsersFromDynamo() {
   
   }
 
+function invokeTickerTracker(username) {
+
+  var p = new Promise((resolve, reject) => {
+    const payload = {queryStringParameters: {username: username}};
+    const invokeParams = {
+        FunctionName: 'wallet-builder-dev-tickerTracker',
+        InvocationType : 'RequestResponse',
+        Payload: JSON.stringify(payload)
+      }; 
+
+    lambda.invoke(invokeParams, function(error, data) {
+      if (error) {
+        console.log(error);
+        reject(error);
+      }
+
+      if (!data) {
+        console.log('Payload null')
+        reject({error: 'Payload null'});
+      }
+
+      const payload = JSON.parse(data.Payload);  
+      if (payload.errorMessage) {
+        console.log(payload)
+        reject({error: payload.errorMessage});
+      }
+      
+      console.log(payload)
+
+      resolve();
+  
+    });
+
+  });
+
+  return p;
+
+}
+
 module.exports.reloadUsersWallets = () => {
 
     getUsersFromDynamo().then(users => {
         var promiseArray = [];
         users.forEach(user => {
-            promiseArray.push(tickerTracker.tickerTracker(user));
+            promiseArray.push(invokeTickerTracker(user));
         });
 
         return Promise.all(promiseArray).then(() => {

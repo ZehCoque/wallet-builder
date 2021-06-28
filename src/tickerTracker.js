@@ -1,15 +1,13 @@
 const AWS = require('aws-sdk');
-const lambda = new AWS.Lambda({
-  region: 'sa-east-1'
-});
 let options = {};
 if (process.env.IS_OFFLINE) {
   options= {
       region: 'localhost',
       endpoint: 'http://localhost:8000'
   }
-}
+} else options = {region: 'sa-east-1'}
 const dynamoDb = new AWS.DynamoDB.DocumentClient(options);
+const lambda = new AWS.Lambda(options);
 
 const tableName = process.env.SESSION_NAME + "-TICKERS";
 
@@ -46,8 +44,10 @@ function getUserStockHistory(event) {
   var p = new Promise((resolve, reject) => {
 
     var username;
-    if (!event.Records) username = event
+    if (!event.Records) username = event.queryStringParameters.username;
     else username = event.Records[0].dynamodb.Keys.username.S;
+
+    console.log(username)
     
     const payload = {queryStringParameters: {username: username}};
     const invokeParams = {
@@ -61,6 +61,8 @@ function getUserStockHistory(event) {
         console.log(error);
         reject(error);
       }
+
+      console.log('payload', data)
 
       const payload = JSON.parse(data.Payload);
 
@@ -120,7 +122,9 @@ function putTicker(ticker) {
   return p;
 }
 
-module.exports.tickerTracker = (event) => {
+module.exports.tickerTracker = (event, context, callback) => {
+  console.log(event)
+
   if (event.Records) {
     if (event.Records[0].eventName === 'REMOVE') return {
       statusCode: 200,
@@ -128,64 +132,64 @@ module.exports.tickerTracker = (event) => {
     }; ;
   }
 
-  	var promiseArray = [getTickersFromDynamo(), getUserStockHistory(event)];
+  var promiseArray = [getTickersFromDynamo(), getUserStockHistory(event)];
 
-    return Promise.all(promiseArray).then((results) => {
+  return Promise.all(promiseArray).then((results) => {
 
-        const dynamoTickers = results[0];
-        const userTickers = results [1];
+      const dynamoTickers = results[0];
+      const userTickers = results [1];
 
-        Array.prototype.diff = function(a) {
-          return this.filter(function(i) {return a.indexOf(i) < 0;});
-        };
+      Array.prototype.diff = function(a) {
+        return this.filter(function(i) {return a.indexOf(i) < 0;});
+      };
 
-        const difference = userTickers.diff(dynamoTickers);
+      const difference = userTickers.diff(dynamoTickers);
 
 
-        if (difference.length === 0) {
+      if (difference.length === 0) {
+
+        const response = {
+          message: "No changes have been made."
+        }
+
+        console.log(response);
+
+        return callback(null, response);;
+
+      } else {
+
+        var tickerPromiseArray = [];
+
+        difference.forEach(ticker => {
+          tickerPromiseArray.push(putTicker(ticker));
+        });
+
+        return Promise.all(tickerPromiseArray)
+        .then(() => {
 
           const response = {
-            message: "No changes have been made."
+            message: "Tickers added successfully!",
+            tickers: difference
           }
 
           console.log(response);
 
-          return response;
+          return callback(null, response);;
+        })
+        .catch(error => {
 
-        } else {
+          const response = {
+            message: "Error!",
+            error: error
+          }
 
-          var tickerPromiseArray = [];
+          console.log(response);
 
-          difference.forEach(ticker => {
-            tickerPromiseArray.push(putTicker(ticker));
-          });
+          return callback(null, response);;
+        });
 
-          return Promise.all(tickerPromiseArray)
-          .then(() => {
+      }
 
-            const response = {
-              message: "Tickers added successfully!",
-              tickers: difference
-            }
-
-            console.log(response);
-
-            return response;
-          })
-          .catch(error => {
-
-            const response = {
-              message: "Error!",
-              error: error
-            }
-
-            console.log(response);
-
-            return response;
-          });
-
-        }
-  
-    }).catch(error => console.log("Promise.all error", error));
+  }).catch(error => console.log("Promise.all error", error));
 
 }

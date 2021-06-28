@@ -1,4 +1,4 @@
-const CryptoHelper = require('./util/crypto');
+const CryptoHelper = require('../utils/crypto');
 const CeiCrawler = require('cei-crawler');
 const AWS = require('aws-sdk');
 let options = {};
