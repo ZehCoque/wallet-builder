@@ -165,6 +165,30 @@ function getQtyArray(operationList) {
 
 }
 
+function calculateSpend(ticker, history, tickersFromDB) {
+  return new Promise((resolve) => {
+      const spend = [];
+      qtty = Object.values(history[1]).find(h => h.name === ticker).data;
+      timestamps = history[0].slice(-qtty.length);
+      tickerInfo = Object.values(tickersFromDB).find(h => h.name === ticker);
+      timestamps.forEach((timestep, index) => {
+          if (!tickerInfo.timestamp.includes(timestep)) {
+              spend.push(null);
+          } else {
+              const closeIndex = tickerInfo.timestamp.indexOf(timestep);
+              spend.push(qtty[index] * tickerInfo.close[closeIndex]);
+          }
+      });
+
+      const result = {
+          name: ticker,
+          data: spend,
+          categories: timestamps
+      }
+
+      resolve(result);
+  })
+}
 
 module.exports.chartMaker = (event, context, callback)  => {
 
@@ -182,11 +206,23 @@ module.exports.chartMaker = (event, context, callback)  => {
       const promiseRes = await Promise.all(promiseArray);
       // console.log(promiseRes);
 
-      const response = {
-        statusCode: 200,
-        body: JSON.stringify(promiseRes),
-      };
-      return callback(null, response);
+      promiseArray = [];
+
+      const history = promiseRes.shift();
+      const tickersFromDB = promiseRes;
+
+      tickerList.forEach(ticker => {
+         promiseArray.push(calculateSpend(ticker, history, tickersFromDB));
+      });
+
+      Promise.all(promiseArray).then((finalRes) => {
+        const response = {
+          statusCode: 200,
+          body: JSON.stringify(finalRes),
+        };
+        return callback(null, response);
+      })
+
     } catch (error) {
       const error_response = {
         statusCode: 500,
