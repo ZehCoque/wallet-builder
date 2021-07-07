@@ -91,21 +91,23 @@ function getTimeseriesFromDB(ticker) {
       },
       ScanIndexForward: false
     };
-  
+
     var p = new Promise(async (resolve, reject) => {
       await dynamoDb.query(params, (error, res) => {
         if (error) {
           console.error('DynamoDB error: ' + error);
           reject(error);
         }
-        
-        if (!res || !res.Items) resolve('Ticker not found in DynamoDB')
 
         var data = {
           name: ticker,
           close: [],
           timestamp: []
         }
+
+        if (!res || !res.Items) {
+          resolve(data)
+        };
 
         res.Items.forEach(row => {
           data.close.push(row.close);
@@ -169,9 +171,11 @@ function calculateSpend(ticker, history, tickersFromDB) {
   return new Promise((resolve) => {
       const spend = [];
       qtty = Object.values(history[1]).find(h => h.name === ticker).data;
-      timestamps = history[0].slice(-qtty.length);
+
+      while (qtty.length != history[0].length) qtty.unshift(null);
+
       tickerInfo = Object.values(tickersFromDB).find(h => h.name === ticker);
-      timestamps.forEach((timestep, index) => {
+      history[0].forEach((timestep, index) => {
           if (!tickerInfo.timestamp.includes(timestep)) {
               spend.push(null);
           } else {
@@ -183,7 +187,6 @@ function calculateSpend(ticker, history, tickersFromDB) {
       const result = {
           name: ticker,
           data: spend,
-          categories: timestamps
       }
 
       resolve(result);
@@ -204,7 +207,6 @@ module.exports.chartMaker = (event, context, callback)  => {
 
     try {
       const promiseRes = await Promise.all(promiseArray);
-      // console.log(promiseRes);
 
       promiseArray = [];
 
@@ -215,10 +217,23 @@ module.exports.chartMaker = (event, context, callback)  => {
          promiseArray.push(calculateSpend(ticker, history, tickersFromDB));
       });
 
+
       Promise.all(promiseArray).then((finalRes) => {
+
+        const dataList = finalRes.map(c => c.data);
+        const totalSum = dataList[0].map((x, idx) => dataList.reduce((sum, curr) => sum + curr[idx], 0));
+
         const response = {
           statusCode: 200,
-          body: JSON.stringify(finalRes),
+          body: JSON.stringify({
+            chartData: finalRes,
+            totalSum: [
+              {
+                name: "Somatório",
+                data: totalSum
+              }],
+            timestamps: history[0]
+          }),
         };
         return callback(null, response);
       })
