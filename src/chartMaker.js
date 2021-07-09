@@ -127,7 +127,7 @@ function getQtyArray(operationList) {
   var p = new Promise((resolve, reject) => {
     var date = operationList[0].date;
 
-    var categories = [];
+    var timestamps = [];
     var series = [];
     
     while (momentBusinessDays.calculateBusinessDays(date,moment()) > 0) {
@@ -155,12 +155,12 @@ function getQtyArray(operationList) {
         if(tickers.indexOf(op.ticker) === -1) tickers.push(op.ticker);
       })
       
-      categories.push(date);
+      timestamps.push(date);
       date = momentBusinessDays.addBusinessDays(date,1);
   
     }
 
-    resolve([categories, series]);
+    resolve([timestamps, series]);
   })
 
   return p;
@@ -169,7 +169,7 @@ function getQtyArray(operationList) {
 
 function calculateSpend(ticker, history, tickersFromDB) {
   return new Promise((resolve) => {
-      const spend = [];
+      const data = [];
       qtty = Object.values(history[1]).find(h => h.name === ticker).data;
 
       while (qtty.length != history[0].length) qtty.unshift(null);
@@ -177,44 +177,28 @@ function calculateSpend(ticker, history, tickersFromDB) {
       tickerInfo = Object.values(tickersFromDB).find(h => h.name === ticker);
       history[0].forEach((timestep, index) => {
           if (!tickerInfo.timestamp.includes(timestep)) {
-              spend.push(null);
+              const coord = {
+                y: null,
+                x: timestep
+              }
+              data.push(coord);
           } else {
               const closeIndex = tickerInfo.timestamp.indexOf(timestep);
-              spend.push(qtty[index] * tickerInfo.close[closeIndex]);
+              const coord = {
+                y: qtty[index] * tickerInfo.close[closeIndex],
+                x: timestep
+              }
+              data.push(coord);
           }
       });
 
       const result = {
           name: ticker,
-          data: spend,
+          data: data,
       }
 
       resolve(result);
   })
-}
-
-function apexChartData(chartData, timestamps) {
-
-  const dataseries = [];
-
-  if (!chartData) return dataseries;
-
-  chartData.forEach(e => {
-    const data = e.data.map((d, index) => {
-      return {
-        y: d, 
-        x: timestamps[index]
-      }
-    });
-
-    dataseries.push({
-      name: e.name,
-      data: data
-    })
-
-  })
-
-  return dataseries;
 }
 
 module.exports.chartMaker = (event, context, callback)  => {
@@ -244,19 +228,23 @@ module.exports.chartMaker = (event, context, callback)  => {
 
       Promise.all(promiseArray).then((finalRes) => {
 
-        const dataList = finalRes.map(c => c.data);
-        const totalSum = dataList[0].map((x, idx) => dataList.reduce((sum, curr) => sum + curr[idx], 0));
+        const totalSum = finalRes[0].data.map((data, idx) => {
+          return {
+              x: data.x,
+              y: finalRes.reduce((sum, curr) => sum + curr.data[idx].y, 0)
+          }
+        });
 
         const response = {
           statusCode: 200,
           body: JSON.stringify({
-            chartData: apexChartData(finalRes, history[0]),
-            totalSum: apexChartData([
+            chartData: finalRes,
+            totalSum: [
               {
                 name: "Somatório",
                 data: totalSum
               }
-            ], history[0]),
+            ],
           }),
         };
         return callback(null, response);
