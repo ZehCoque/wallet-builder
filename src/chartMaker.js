@@ -193,6 +193,30 @@ function calculateSpend(ticker, history, tickersFromDB) {
   })
 }
 
+function apexChartData(chartData, timestamps) {
+
+  const dataseries = [];
+
+  if (!chartData) return dataseries;
+
+  chartData.forEach(e => {
+    const data = e.data.map((d, index) => {
+      return {
+        y: d, 
+        x: timestamps[index]
+      }
+    });
+
+    dataseries.push({
+      name: e.name,
+      data: data
+    })
+
+  })
+
+  return dataseries;
+}
+
 module.exports.chartMaker = (event, context, callback)  => {
 
   getOperations(event).then(async res => {
@@ -226,13 +250,13 @@ module.exports.chartMaker = (event, context, callback)  => {
         const response = {
           statusCode: 200,
           body: JSON.stringify({
-            chartData: finalRes,
-            totalSum: [
+            chartData: apexChartData(finalRes, history[0]),
+            totalSum: apexChartData([
               {
                 name: "Somatório",
                 data: totalSum
-              }],
-            timestamps: history[0]
+              }
+            ], history[0]),
           }),
         };
         return callback(null, response);
