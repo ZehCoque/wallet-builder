@@ -1,4 +1,5 @@
 var moment = require('moment');
+const holidays = require('./b3-holidays.json');
 
 module.exports.calculateBusinessDays = (firstDate, secondDate) => {
   var day1 = moment(firstDate);
@@ -46,11 +47,11 @@ module.exports.addBusinessDays = (originalDate, numDaysToAdd) => {
 
   let newDate = originalDate;
 
-  newDate = moment(newDate).add(numDaysToAdd, 'days');
+  newDate = moment(newDate).startOf('day').add(numDaysToAdd, 'days');
 
-  while (moment(newDate).day() === Sunday || moment(newDate).day() === Saturday) {
-    newDate = moment(newDate).add(1, 'days');
+  while (moment(newDate).day() === Sunday || moment(newDate).day() === Saturday || holidays.includes(moment(newDate).format("YYYY-MM-DD"))) {
+    newDate = moment(newDate).startOf('day').add(1, 'days');
   }
 
-  return moment(newDate).startOf('day').format("YYYY-MM-DD");
+  return moment(newDate).format("YYYY-MM-DD");
 }
