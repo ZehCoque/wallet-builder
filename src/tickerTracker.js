@@ -123,7 +123,6 @@ function putTicker(ticker) {
 }
 
 module.exports.tickerTracker = (event, context, callback) => {
-  console.log(event)
 
   if (event.Records) {
     if (event.Records[0].eventName === 'REMOVE') return {

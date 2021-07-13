@@ -7,9 +7,10 @@
     "axios": "^0.21.1",
     "cei-crawler": "^2.4.0",
     "crypto-js": "^4.0.0",
-    "moment": "^2.29.1"
+    "moment": "^2.29.1",
+    "yahoo-finance": "^0.3.7"
   },
-  "devDependencies": {    
+  "devDependencies": {
     "serverless-dynamodb-local": "^0.2.39",
     "serverless-offline": "^7.0.0"
   },
